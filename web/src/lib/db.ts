@@ -6,6 +6,7 @@ import mvpWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url
 import ehWasm from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
 import ehWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
 import {dataUrl, getJson} from './data';
+import {setEngineState} from './engine';
 
 export type Row = Record<string, unknown>;
 
@@ -79,10 +80,20 @@ async function init(): Promise<duckdb.AsyncDuckDBConnection> {
 }
 
 export function connection(): Promise<duckdb.AsyncDuckDBConnection> {
-  instance ??= init().catch((e) => {
-    instance = null;
-    throw e;
-  });
+  if (!instance) {
+    setEngineState('loading');
+    instance = init().then(
+      (c) => {
+        setEngineState('ready');
+        return c;
+      },
+      (e) => {
+        instance = null;
+        setEngineState('error');
+        throw e;
+      },
+    );
+  }
   return instance;
 }
 

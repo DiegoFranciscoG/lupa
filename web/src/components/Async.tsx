@@ -1,4 +1,5 @@
-import {useEffect, useState, type DependencyList, type ReactNode} from 'react';
+import {useEffect, useState, useSyncExternalStore, type DependencyList, type ReactNode} from 'react';
+import {getEngineState, subscribeEngine} from '../lib/engine';
 import {Spinner} from '@astryxdesign/core/Spinner';
 import {Banner} from '@astryxdesign/core/Banner';
 
@@ -34,7 +35,23 @@ export function Loaded<T>({
   children: (d: T) => ReactNode;
   label?: string;
 }) {
-  if (state.status === 'loading') return <Spinner label={label} />;
+  if (state.status === 'loading') return <LoadingState label={label} />;
   if (state.status === 'error') return <Banner status="error" title="No se pudieron cargar los datos" description={state.error} />;
   return <>{children(state.data)}</>;
+}
+
+/** While the in-browser engine downloads for the first time, say so: it takes a few seconds once. */
+function LoadingState({label}: {label: string}) {
+  const engine = useSyncExternalStore(subscribeEngine, getEngineState, getEngineState);
+  return (
+    <div role="status" aria-live="polite" style={{display: 'grid', gap: 8, justifyItems: 'start'}}>
+      <Spinner label={label} />
+      {engine === 'loading' ? (
+        <p className="post-note" style={{margin: 0}}>
+          Preparando el motor de consultas en tu navegador. Solo la primera vez descarga unos 8 MB; después las consultas
+          responden en menos de un segundo.
+        </p>
+      ) : null}
+    </div>
+  );
 }

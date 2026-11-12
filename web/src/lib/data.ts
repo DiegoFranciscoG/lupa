@@ -24,6 +24,7 @@ export interface Meta {
   snapshot_id: number;
   snapshot_fecha: string;
   metodologia_version: string;
+  datos_hasta: string | null;
   cargas: Carga[];
   anios: number[];
   procesos: number;

@@ -77,6 +77,7 @@ COPY (
         (SELECT max(snapshot_id) FROM lake.snapshots()) AS snapshot_id,
         (SELECT strftime(max(snapshot_time), '%Y-%m-%d') FROM lake.snapshots()) AS snapshot_fecha,
         (SELECT metodologia_version()) AS metodologia_version,
+        (SELECT strftime(max(fecha), '%Y-%m-%d') FROM mart.hecho_adjudicacion WHERE fecha <= current_date) AS datos_hasta,
         (SELECT list({'anio': source_year, 'estado': status, 'sha256': sha256, 'procesos': parsed, 'cargado': strftime(loaded_at, '%Y-%m-%d')} ORDER BY source_year)
            FROM (SELECT * FROM lake.load_manifest QUALIFY row_number() OVER (PARTITION BY source_year ORDER BY status = 'fresh' DESC, loaded_at DESC) = 1)) AS cargas,
         (SELECT list(DISTINCT anio ORDER BY anio) FROM mart.hecho_adjudicacion) AS anios,
@@ -120,7 +121,10 @@ COPY (
 -- Home feed: the most relevant signals as ready-to-read posts (no engine needed on first view).
 -- Price posts are ranked by the extra amount paid against the median, not by the ratio alone.
 COPY (
-    WITH ultimo AS (SELECT max(anio) - 1 AS desde FROM mart.hecho_adjudicacion),
+    WITH ultimo AS (
+        -- Last complete year when there are several; the only year when there is one.
+        SELECT CASE WHEN count(DISTINCT anio) > 1 THEN max(anio) - 1 ELSE max(anio) END AS desde FROM mart.hecho_adjudicacion
+    ),
     precio AS (
         SELECT 'PRECIO_ATIPICO' AS indicador, pub_ocid(s.ocid) AS ocid, s.anio, c.fecha, s.valor, s.umbral, s.explicacion,
                s.entidad_id, e.nombre AS entidad,
@@ -168,19 +172,21 @@ COPY (
 
 -- Right rail: entities and suppliers with the largest amounts in the last full year.
 COPY (
-    WITH ultimo AS (SELECT max(anio) - 1 AS anio FROM mart.hecho_adjudicacion)
+    WITH ultimo AS (
+        SELECT CASE WHEN count(DISTINCT anio) > 1 THEN max(anio) - 1 ELSE max(anio) END AS anio FROM mart.hecho_adjudicacion
+    )
     SELECT
         (SELECT anio FROM ultimo) AS anio,
-        (SELECT list({'id': entidad_id, 'nombre': nombre, 'monto': monto} ORDER BY monto DESC) FROM (
+        coalesce((SELECT list({'id': entidad_id, 'nombre': nombre, 'monto': monto} ORDER BY monto DESC) FROM (
             SELECT a.entidad_id, e.nombre, round(sum(a.monto))::BIGINT AS monto
             FROM mart.hecho_adjudicacion a JOIN mart.dim_entidad e USING (entidad_id)
             WHERE a.vigente AND a.anio = (SELECT anio FROM ultimo) AND e.tipo <> 'natural'
-            GROUP BY ALL ORDER BY monto DESC LIMIT 6)) AS entidades,
-        (SELECT list({'id': proveedor_id, 'nombre': nombre, 'monto': monto} ORDER BY monto DESC) FROM (
+            GROUP BY ALL ORDER BY monto DESC LIMIT 6)), []) AS entidades,
+        coalesce((SELECT list({'id': proveedor_id, 'nombre': nombre, 'monto': monto} ORDER BY monto DESC) FROM (
             SELECT a.proveedor_id, p.nombre, round(sum(a.monto))::BIGINT AS monto
             FROM mart.hecho_adjudicacion a JOIN mart.dim_proveedor p USING (proveedor_id)
             WHERE a.vigente AND a.anio = (SELECT anio FROM ultimo) AND p.tipo = 'juridica'
-            GROUP BY ALL ORDER BY monto DESC LIMIT 6)) AS proveedores
+            GROUP BY ALL ORDER BY monto DESC LIMIT 6)), []) AS proveedores
 ) TO 'web/public/data/tendencias.json' (FORMAT json);
 
 -- Materialized view for the signals page: top 100 per indicator and year, a single row group,

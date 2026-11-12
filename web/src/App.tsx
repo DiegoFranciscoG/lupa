@@ -1,4 +1,5 @@
-import {Component, lazy, Suspense, useState, type ReactNode} from 'react';
+import {Component, lazy, Suspense, useEffect, useState, type ReactNode} from 'react';
+import {warmUpWhenIdle} from './lib/engine';
 import {Spinner} from '@astryxdesign/core/Spinner';
 import {Banner} from '@astryxdesign/core/Banner';
 import {Button} from '@astryxdesign/core/Button';
@@ -65,6 +66,17 @@ function Page() {
       return <CalidadPage />;
     default:
       return isLegalSlug(route.path) ? <LegalPage slug={route.path} /> : <NotFoundPage />;
+  }
+}
+
+/** Secondary panels must never take the page down: on error they simply disappear. */
+class QuietBoundary extends Component<{children: ReactNode}, {failed: boolean}> {
+  state = {failed: false};
+  static getDerivedStateFromError() {
+    return {failed: true};
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
   }
 }
 
@@ -165,7 +177,7 @@ function RightRail() {
         <>
           <section className="panel" aria-labelledby="h-tend-ent">
             <h2 id="h-tend-ent">Más adjudicado en {ready[1].anio}</h2>
-            {ready[1].entidades.map((e, i) => (
+            {(ready[1].entidades ?? []).map((e, i) => (
               <a key={e.id} className="panel-row" href={href('entidad', e.id)}>
                 <small>{i + 1} · Entidad</small>
                 <strong>{e.nombre}</strong>
@@ -175,7 +187,7 @@ function RightRail() {
           </section>
           <section className="panel" aria-labelledby="h-tend-prov">
             <h2 id="h-tend-prov">Empresas con más adjudicaciones</h2>
-            {ready[1].proveedores.map((p, i) => (
+            {(ready[1].proveedores ?? []).map((p, i) => (
               <a key={p.id} className="panel-row" href={href('proveedor', p.id)}>
                 <small>{i + 1} · Empresa</small>
                 <strong>{p.nombre}</strong>
@@ -226,6 +238,7 @@ function ColumnFooter() {
 
 export function App() {
   const route = useRoute();
+  useEffect(() => warmUpWhenIdle(), []);
   return (
     <>
       <a className="skip-link" href="#contenido">
@@ -257,7 +270,9 @@ export function App() {
           </PageErrorBoundary>
           <ColumnFooter />
         </main>
-        <RightRail />
+        <QuietBoundary>
+          <RightRail />
+        </QuietBoundary>
       </div>
       <BottomNav />
       <CookieNotice />

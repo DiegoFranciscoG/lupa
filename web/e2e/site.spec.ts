@@ -176,3 +176,20 @@ test('@mobile panorama and legal pages fit a phone without horizontal scroll', a
     expect(overflow, `route ${r}`).toBeLessThanOrEqual(1);
   }
 });
+
+test('no page stays loading: every data page shows content (engine cold start included)', async ({page}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  for (const r of ['senales', 'entidades', 'red', 'cifras', 'calidad', 'datos', 'entidad/EC-RUC-0960000220001-44856']) {
+    await page.goto(`#/${r}`);
+    await expect(page.getByText('Cargando datos'), `route ${r}`).toHaveCount(0, {timeout: 30_000});
+    await expect(page.getByText('No se pudieron cargar los datos'), `route ${r}`).toHaveCount(0);
+    await expect(page.locator('.feed-col table, .feed-col svg.lupa-chart').first(), `route ${r}`).toBeVisible();
+  }
+  expect(errors, 'uncaught page errors').toEqual([]);
+});
+
+test('the home page states how current the data is', async ({page}) => {
+  await page.goto('');
+  await expect(page.getByText(/Datos del SERCOP hasta el \d{4}-\d{2}-\d{2}, actualizados el/)).toBeVisible();
+});
