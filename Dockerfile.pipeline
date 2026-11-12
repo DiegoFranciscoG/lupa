@@ -9,7 +9,7 @@ COPY ingest/src ./src
 RUN cargo build --release --locked
 
 # ---- 2. Fetch the DuckDB CLI with a verified checksum
-FROM node:24.11.1-bookworm-slim AS duckdb
+FROM node:26.13.0-bookworm-slim AS duckdb
 ARG DUCKDB_VERSION=2.0.0
 ARG DUCKDB_SHA256=c6507206baf7793c6013dbd82368469a45f20dc0e17a6f92f204602f652ed2bc
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
@@ -19,7 +19,7 @@ RUN curl -fsSL -o /tmp/duckdb.tgz "https://github.com/duckdb/duckdb/releases/dow
     && tar -xzf /tmp/duckdb.tgz -C /usr/local/bin duckdb && chmod +x /usr/local/bin/duckdb
 
 # ---- 3. Runtime (non-root)
-FROM node:24.11.1-bookworm-slim
+FROM node:26.13.0-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=duckdb /usr/local/bin/duckdb /usr/local/bin/duckdb
