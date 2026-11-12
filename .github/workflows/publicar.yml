@@ -1,0 +1,94 @@
+name: Carga semanal y publicación
+
+# Weekly (the OCP registry collects SERCOP data monthly; unchanged years are skipped by their
+# SHA-256, and weekly runs keep the lake cache alive) and on demand.
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      years:
+        description: 'Años a cargar (ej. 2015..2026 o 2025)'
+        required: false
+        default: '2015..2026'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publicar
+  cancel-in-progress: false
+
+env:
+  DUCKDB_VERSION: 2.0.0
+  DUCKDB_SHA256: c6507206baf7793c6013dbd82368469a45f20dc0e17a6f92f204602f652ed2bc
+
+jobs:
+  datos:
+    name: Ingesta, base de datos, pruebas y sitio
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The DuckLake catalog and its files are kept between runs: each run adds one snapshot.
+      - name: Restaurar el lago de la carga anterior
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            data/lake
+            data/parquet
+            data/raw
+          key: lago-${{ github.run_id }}
+          restore-keys: lago-
+      - name: Rust 1.99.1
+        run: rustup toolchain install 1.99.1 --profile minimal && rustup default 1.99.1
+      - run: cargo build --release --locked --manifest-path ingest/Cargo.toml
+      - name: DuckDB CLI (SHA-256 verificado)
+        run: |
+          curl -fsSL -o duckdb.tgz "https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/duckdb-cli-linux-amd64.tar.gz"
+          echo "${DUCKDB_SHA256}  duckdb.tgz" | sha256sum -c -
+          tar -xzf duckdb.tgz duckdb && sudo mv duckdb /usr/local/bin/
+      - name: Ingesta (un año caído conserva su carga anterior)
+        run: ingest/target/release/lupa-ingest run --years "${{ inputs.years || '2015..2026' }}"
+      - name: Base de datos, pruebas de calidad y exportación (se detiene si una prueba falla)
+        env:
+          LUPA_HASH_SALT: ${{ secrets.LUPA_HASH_SALT }}
+        run: scripts/lupa.sh all
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.11.1'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Sitio y feeds RSS
+        working-directory: web
+        env:
+          VITE_CONTACT_EMAIL: ${{ vars.LUPA_CONTACT_EMAIL }}
+          LUPA_SITE_URL: ${{ vars.LUPA_SITE_URL }}
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsc -b && npx vite build
+          node scripts/build-feeds.mjs
+          node scripts/check-language.mjs
+      - name: Pruebas de punta a punta (T-06, T-07, T-08, T-11)
+        working-directory: web
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: web/dist
+
+  desplegar:
+    name: GitHub Pages
+    needs: datos
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

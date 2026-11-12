@@ -27,6 +27,8 @@ pub struct Config {
 pub enum Status {
     /// New data loaded in this run.
     Fresh,
+    /// The source file is byte-identical to the last load (same SHA-256): nothing to reload.
+    Unchanged,
     /// The source failed; the previous data for this year is kept.
     Stale,
     /// The source failed and there was no previous data.
@@ -85,7 +87,19 @@ fn promote(staging: &Path, out: &Path, year: i64) -> Result<()> {
     Ok(())
 }
 
-fn ingest_year(cfg: &Config, year: i64, url: &str) -> Result<(FlattenReport, String, u64)> {
+enum Ingested {
+    Fresh(FlattenReport, String, u64),
+    Unchanged(String, u64),
+}
+
+/// SHA-256 of the file behind the last fresh load of `year`, if any.
+fn previous_sha(out: &Path, year: i64) -> Option<String> {
+    let text = std::fs::read_to_string(out.join("_manifest").join(format!("year={year}.json"))).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
+    value.get("sha256")?.as_str().map(str::to_string)
+}
+
+fn ingest_year(cfg: &Config, year: i64, url: &str) -> Result<Ingested> {
     let raw = cfg.raw_dir.join(format!("{year}.jsonl.gz"));
     let (input, sha, bytes) = if cfg.offline {
         let bytes = std::fs::metadata(&raw)
@@ -97,6 +111,12 @@ fn ingest_year(cfg: &Config, year: i64, url: &str) -> Result<(FlattenReport, Str
         let d = download(url, &part, &cfg.retry)?;
         (part, d.sha256, d.bytes)
     };
+    if has_previous(&cfg.out_dir, year) && previous_sha(&cfg.out_dir, year).as_deref() == Some(sha.as_str()) {
+        if input != raw {
+            std::fs::rename(&input, &raw)?;
+        }
+        return Ok(Ingested::Unchanged(sha, bytes));
+    }
     let staging = cfg.out_dir.join(".staging").join(year.to_string());
     if staging.exists() {
         std::fs::remove_dir_all(&staging)?;
@@ -114,14 +134,14 @@ fn ingest_year(cfg: &Config, year: i64, url: &str) -> Result<(FlattenReport, Str
     if input != raw {
         std::fs::rename(&input, &raw)?;
     }
-    Ok((report, sha, bytes))
+    Ok(Ingested::Fresh(report, sha, bytes))
 }
 
 /// Ingests one year and never leaves the output without data it already had.
 pub fn run_year(cfg: &Config, year: i64) -> YearOutcome {
     let url = source_url(&cfg.base_url, year);
     match ingest_year(cfg, year, &url) {
-        Ok((report, sha, bytes)) => YearOutcome {
+        Ok(Ingested::Fresh(report, sha, bytes)) => YearOutcome {
             year,
             status: Status::Fresh,
             source_url: url,
@@ -130,6 +150,16 @@ pub fn run_year(cfg: &Config, year: i64) -> YearOutcome {
             finished_at_unix: now_unix(),
             error: None,
             report: Some(report),
+        },
+        Ok(Ingested::Unchanged(sha, bytes)) => YearOutcome {
+            year,
+            status: Status::Unchanged,
+            source_url: url,
+            sha256: Some(sha),
+            bytes: Some(bytes),
+            finished_at_unix: now_unix(),
+            error: None,
+            report: None,
         },
         Err(e) => YearOutcome {
             year,

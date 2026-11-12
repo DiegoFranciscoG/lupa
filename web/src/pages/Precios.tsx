@@ -71,23 +71,30 @@ function BuscarPrecio() {
               <Text color="secondary">
                 Resultados para «{cleanTerm(submitted)}». Elige un grupo para ver cada compra.
               </Text>
-              <DataTable
-                rows={rows}
-                columns={[
-                  {
-                    key: 'cpc_descripcion',
-                    header: 'Ítem',
-                    render: (r) => (
-                      <Link href={href('precios', String(r.cpc), String(r.unidad), String(r.anio))}>{String(r.cpc_descripcion ?? r.cpc)}</Link>
-                    ),
-                  },
-                  {key: 'unidad', header: 'Unidad', render: (r) => String(r.unidad).toLowerCase()},
-                  {key: 'anio', header: 'Año'},
-                  {key: 'compras', header: 'Compras', align: 'end', render: (r) => fmtInt(r.compras)},
-                  {key: 'mediana', header: 'Mediana', align: 'end', render: (r) => fmtPrice(r.mediana)},
-                  {key: 'p75', header: 'Rango típico', align: 'end', render: (r) => `${fmtPrice(r.p25)} a ${fmtPrice(r.p75)}`},
-                ]}
-              />
+              <div className="result-list">
+                {rows.map((r) => (
+                  <a key={`${r.cpc}-${r.unidad}-${r.anio}`} className="result" href={href('precios', String(r.cpc), String(r.unidad), String(r.anio))}>
+                    <strong>{String(r.cpc_descripcion ?? r.cpc)}</strong>
+                    <ul className="chips">
+                      <li>
+                        <em>Mediana</em> {fmtPrice(r.mediana)}
+                      </li>
+                      <li>
+                        <em>Rango típico</em> {fmtPrice(r.p25)} a {fmtPrice(r.p75)}
+                      </li>
+                      <li>
+                        <em>Compras</em> {fmtInt(r.compras)}
+                      </li>
+                      <li>
+                        <em>Año</em> {String(r.anio)}
+                      </li>
+                      <li>
+                        <em>Unidad</em> {String(r.unidad).toLowerCase()}
+                      </li>
+                    </ul>
+                  </a>
+                ))}
+              </div>
             </VStack>
           )
         }

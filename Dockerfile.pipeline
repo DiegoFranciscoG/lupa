@@ -1,0 +1,37 @@
+# LUPA data pipeline: Rust ingest + DuckDB 2.0 SQL models + RSS feeds.
+# Output: /app/web/public/data (site data) and /app/out/rss (feeds).
+
+# ---- 1. Build the Rust ingest
+FROM rust:1.99.1-slim-bookworm AS ingest
+WORKDIR /src
+COPY ingest/Cargo.toml ingest/Cargo.lock ./
+COPY ingest/src ./src
+RUN cargo build --release --locked
+
+# ---- 2. Fetch the DuckDB CLI with a verified checksum
+FROM node:24.11.1-bookworm-slim AS duckdb
+ARG DUCKDB_VERSION=2.0.0
+ARG DUCKDB_SHA256=c6507206baf7793c6013dbd82368469a45f20dc0e17a6f92f204602f652ed2bc
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL -o /tmp/duckdb.tgz "https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/duckdb-cli-linux-amd64.tar.gz" \
+    && echo "${DUCKDB_SHA256}  /tmp/duckdb.tgz" | sha256sum -c - \
+    && tar -xzf /tmp/duckdb.tgz -C /usr/local/bin duckdb && chmod +x /usr/local/bin/duckdb
+
+# ---- 3. Runtime (non-root)
+FROM node:24.11.1-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=duckdb /usr/local/bin/duckdb /usr/local/bin/duckdb
+COPY --from=ingest /src/target/release/lupa-ingest /usr/local/bin/lupa-ingest
+WORKDIR /app
+COPY --chown=node:node scripts ./scripts
+COPY --chown=node:node sql ./sql
+COPY --chown=node:node web/scripts/build-feeds.mjs ./web/scripts/build-feeds.mjs
+RUN mkdir -p data web/public/data out/rss && chown -R node:node /app
+USER node
+# Extensions are installed at build time so runs do not depend on the extension server.
+RUN duckdb -no-agent -c "INSTALL ducklake; INSTALL duckpgq FROM community;"
+ENV DUCKDB_BIN=duckdb LUPA_YEARS=2025
+HEALTHCHECK NONE
+ENTRYPOINT ["bash", "scripts/pipeline.sh"]

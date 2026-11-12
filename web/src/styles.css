@@ -763,3 +763,41 @@ table th {
     display: none;
   }
 }
+
+.rail-right > * {
+  flex-shrink: 0;
+}
+
+.result-list {
+  border: 1px solid var(--lupa-rule);
+  border-radius: var(--lupa-radius);
+  overflow: hidden;
+}
+
+.result {
+  display: block;
+  padding: 12px 16px 4px;
+  border-bottom: 1px solid var(--lupa-rule);
+  color: var(--lupa-ink);
+  text-decoration: none;
+  transition: background-color 120ms ease;
+}
+
+.result:last-child {
+  border-bottom: 0;
+}
+
+.result:hover {
+  background: var(--lupa-surface-hover);
+}
+
+.result:active {
+  background: var(--lupa-chip);
+}
+
+.result strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 16px;
+  overflow-wrap: break-word;
+}

@@ -78,7 +78,7 @@ COPY (
         (SELECT strftime(max(snapshot_time), '%Y-%m-%d') FROM lake.snapshots()) AS snapshot_fecha,
         (SELECT metodologia_version()) AS metodologia_version,
         (SELECT list({'anio': source_year, 'estado': status, 'sha256': sha256, 'procesos': parsed, 'cargado': strftime(loaded_at, '%Y-%m-%d')} ORDER BY source_year)
-           FROM (SELECT * FROM lake.load_manifest QUALIFY row_number() OVER (PARTITION BY source_year ORDER BY loaded_at DESC, status = 'fresh' DESC) = 1)) AS cargas,
+           FROM (SELECT * FROM lake.load_manifest QUALIFY row_number() OVER (PARTITION BY source_year ORDER BY status = 'fresh' DESC, loaded_at DESC) = 1)) AS cargas,
         (SELECT list(DISTINCT anio ORDER BY anio) FROM mart.hecho_adjudicacion) AS anios,
         (SELECT count(*) FROM mart.hecho_proceso) AS procesos,
         (SELECT count(*) FROM mart.hecho_adjudicacion) AS adjudicaciones,

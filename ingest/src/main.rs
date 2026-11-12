@@ -83,6 +83,7 @@ fn main() -> ExitCode {
                                 "{}: fresh, {} releases, {} parse errors, {} awards",
                                 o.year, r.parsed, r.parse_errors, r.awards
                             ),
+                            (Status::Unchanged, _) => println!("{}: unchanged (same SHA-256 as the last load)", o.year),
                             _ => eprintln!("{}: {:?}: {}", o.year, o.status, o.error.as_deref().unwrap_or("")),
                         }
                     }

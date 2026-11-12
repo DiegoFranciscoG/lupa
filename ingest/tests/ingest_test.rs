@@ -154,3 +154,16 @@ fn corrupt_gzip_keeps_previous_data() {
     assert_eq!(rows(&table(dir.path(), "process", 2025)), 5);
     assert!(!dir.path().join("parquet/.staging/2025").exists());
 }
+
+#[test]
+fn identical_source_is_unchanged_and_not_reloaded() {
+    let dir = tempfile::tempdir().unwrap();
+    gzip_fixture(&dir.path().join("raw"), 2025);
+    let first = run(&config(dir.path(), true, "http://unused"), &[2025]).unwrap();
+    assert_eq!(first[0].status, Status::Fresh);
+    let second = run(&config(dir.path(), true, "http://unused"), &[2025]).unwrap();
+    assert_eq!(second[0].status, Status::Unchanged);
+    assert_eq!(second[0].sha256, first[0].sha256);
+    assert!(second[0].report.is_none());
+    assert_eq!(rows(&table(dir.path(), "process", 2025)), 5);
+}

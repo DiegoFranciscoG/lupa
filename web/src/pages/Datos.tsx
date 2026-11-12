@@ -63,7 +63,7 @@ export function DatosPage() {
                   rows={meta.cargas.map((c) => ({...c}))}
                   columns={[
                     {key: 'anio', header: 'Año'},
-                    {key: 'estado', header: 'Estado', render: (r) => (r.estado === 'fresh' ? 'actualizado' : r.estado === 'stale' ? 'se conserva la carga anterior' : String(r.estado))},
+                    {key: 'estado', header: 'Estado', render: (r) => (r.estado === 'fresh' ? 'actualizado' : r.estado === 'stale' ? 'se conserva la carga anterior' : r.estado === 'unchanged' ? 'sin cambios' : String(r.estado))},
                     {key: 'procesos', header: 'Procesos', align: 'end', render: (r) => fmtInt(r.procesos)},
                     {key: 'cargado', header: 'Cargado'},
                     {key: 'sha256', header: 'SHA-256', render: (r) => (r.sha256 ? `${String(r.sha256).slice(0, 16)}…` : 'sin dato')},

@@ -1,0 +1,7 @@
+.git
+data
+web
+!web/scripts/build-feeds.mjs
+ingest/target
+docs
+*.md

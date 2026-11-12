@@ -1,0 +1,40 @@
+# docker compose up --build
+# 1) "pipeline" downloads the selected years from the OCP registry, builds the database and
+#    publishes the site data; 2) "web" serves the site at http://localhost:8080 once data exists.
+services:
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile.pipeline
+    environment:
+      LUPA_HASH_SALT: ${LUPA_HASH_SALT:?Define LUPA_HASH_SALT in .env (openssl rand -hex 32)}
+      LUPA_YEARS: ${LUPA_YEARS:-2025}
+      LUPA_SOURCE_URL: ${LUPA_SOURCE_URL:-https://data.open-contracting.org/en/publication/110/download}
+    volumes:
+      - lupa-work:/app/data
+      - lupa-site-data:/app/web/public/data
+      - lupa-rss:/app/out/rss
+    restart: "no"
+
+  web:
+    build:
+      context: ./web
+    ports:
+      - "8080:8080"
+    depends_on:
+      pipeline:
+        condition: service_completed_successfully
+    volumes:
+      - lupa-site-data:/usr/share/nginx/html/data:ro
+      - lupa-rss:/usr/share/nginx/html/rss:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  lupa-work:
+  lupa-site-data:
+  lupa-rss:

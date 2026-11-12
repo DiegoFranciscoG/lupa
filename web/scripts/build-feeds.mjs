@@ -5,8 +5,8 @@ import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const INPUT = resolve(here, '../../data/export/feeds.json');
-const OUT = resolve(here, '../dist/rss');
+const INPUT = resolve(process.env.LUPA_FEEDS_IN ?? resolve(here, '../../data/export/feeds.json'));
+const OUT = resolve(process.env.LUPA_FEEDS_OUT ?? resolve(here, '../dist/rss'));
 const SITE_URL = (process.env.LUPA_SITE_URL ?? 'https://diegofranciscog.github.io/lupa/').replace(/\/?$/, '/');
 
 export function xmlEscape(s) {

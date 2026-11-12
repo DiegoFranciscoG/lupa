@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DUCKDB_VERSION: 2.0.0
+  DUCKDB_SHA256: c6507206baf7793c6013dbd82368469a45f20dc0e17a6f92f204602f652ed2bc
+
+jobs:
+  secretos:
+    name: Escaneo de secretos (gitleaks)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Instalar gitleaks 8.30.1 (SHA-256 verificado)
+        run: |
+          curl -fsSL -o gl.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gl.tgz" | sha256sum -c -
+          tar -xzf gl.tgz gitleaks
+      - name: Escanear historial completo
+        run: ./gitleaks git . --redact --verbose --exit-code 1
+
+  ingest:
+    name: Ingesta Rust (fmt, clippy, tests, cobertura)
+    runs-on: ubuntu-24.04
+    needs: secretos
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Rust 1.99.1
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt,clippy,llvm-tools-preview
+          rustup default 1.99.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ingest/target
+          key: cargo-${{ hashFiles('ingest/Cargo.lock') }}
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-llvm-cov
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Tests con cobertura (mínimo 80 % de líneas)
+        run: cargo llvm-cov --locked --fail-under-lines 80 --ignore-filename-regex 'main\.rs'
+
+  sql:
+    name: Modelos SQL (pruebas sintéticas y reproducibilidad)
+    runs-on: ubuntu-24.04
+    needs: secretos
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: DuckDB CLI ${{ env.DUCKDB_VERSION }} (SHA-256 verificado)
+        run: |
+          curl -fsSL -o duckdb.tgz "https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/duckdb-cli-linux-amd64.tar.gz"
+          echo "${DUCKDB_SHA256}  duckdb.tgz" | sha256sum -c -
+          tar -xzf duckdb.tgz duckdb && sudo mv duckdb /usr/local/bin/
+      - name: T-03, T-04, T-05 y T-09 sobre datos sintéticos
+        env:
+          # Test-only salt: synthetic data has no real people. Production uses the LUPA_HASH_SALT secret.
+          LUPA_HASH_SALT: 0000000000000000000000000000000000000000000000000000000000000000
+        run: |
+          scripts/lupa.sh unit
+          scripts/lupa.sh repro
+
+  web:
+    name: Sitio (tipos, pruebas, lenguaje, build)
+    runs-on: ubuntu-24.04
+    needs: secretos
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.11.1'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc -b
+      - run: npx vitest run --coverage
+      - name: T-06 lenguaje no acusatorio
+        run: node scripts/check-language.mjs
+      - run: npx vite build
+      - name: Auditoría de dependencias de producción
+        run: npm audit --omit=dev --audit-level=high
+
+  docker:
+    name: Imágenes Docker
+    runs-on: ubuntu-24.04
+    needs: [ingest, sql, web]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build -f Dockerfile.pipeline -t lupa-pipeline .
+      - run: docker build -t lupa-web web
