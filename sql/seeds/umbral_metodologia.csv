@@ -10,3 +10,5 @@ FRAG_BANDA_INFERIOR,Fracción del umbral desde la que una compra se considera ju
 NUEVO_DIAS,Días desde la primera adjudicación para considerar a un proveedor como nuevo,90,Regla del proyecto
 NUEVO_PERCENTIL,Percentil del monto anual a partir del cual una adjudicación es grande,0.95,Regla del proyecto
 R003_DIAS,Plazo de presentación de ofertas considerado corto (días),15,Cardinal R003 valor por defecto
+PRECIO_MAX_DISPERSION,Máxima razón p75/p25 para considerar homogéneo un grupo de comparación,3,Regla del proyecto: un código CPC genérico mezcla productos distintos y no es comparable
+PRECIO_RATIO_MAX,Razón precio/mediana por encima de la cual se trata como probable error de registro (no como señal),50,Regla del proyecto: diferencias de ese tamaño suelen ser el precio total cargado como unitario

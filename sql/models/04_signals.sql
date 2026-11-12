@@ -27,18 +27,28 @@ GROUP BY ALL;
 -- Ratio of each item against its group. Groups below the minimum size get no ratio and
 -- the reason is stated instead.
 CREATE OR REPLACE TABLE mart.precio_comparado AS
-SELECT i.ocid, i.award_id, i.item_key, i.entidad_id, i.proveedor_id, i.proveedor_tipo, i.fecha, i.anio, i.cpc,
-       i.unidad, i.descripcion, i.cantidad, i.precio_unitario::DOUBLE AS precio_unitario, g.compras, g.mediana, m.mad,
-       CASE WHEN g.compras >= umbral('PRECIO_MIN_COMPARABLES')
-            THEN round(i.precio_unitario::DOUBLE / g.mediana, 2) END AS razon_mediana,
-       CASE WHEN g.compras < umbral('PRECIO_MIN_COMPARABLES')
-            THEN 'No se calcula: solo ' || g.compras || ' compras comparables (mínimo '
-                 || umbral('PRECIO_MIN_COMPARABLES')::INTEGER || ').'
+WITH base AS (
+    SELECT i.ocid, i.award_id, i.item_key, i.entidad_id, i.proveedor_id, i.proveedor_tipo, i.fecha, i.anio, i.cpc,
+           i.unidad, i.descripcion, i.cantidad, i.precio_unitario::DOUBLE AS precio_unitario, g.compras, g.mediana, m.mad,
+           g.compras >= umbral('PRECIO_MIN_COMPARABLES') AS suficiente,
+           g.p25 > 0 AND g.p75 / g.p25 <= umbral('PRECIO_MAX_DISPERSION') AS homogeneo,
+           round(g.p75 / nullif(g.p25, 0), 1) AS dispersion
+    FROM mart.hecho_item i
+    JOIN mart.precio_grupo g USING (cpc, unidad, anio)
+    JOIN mart.precio_grupo_mad m USING (cpc, unidad, anio)
+    WHERE i.precio_unitario IS NOT NULL
+)
+SELECT * EXCLUDE (suficiente, homogeneo, dispersion),
+       CASE WHEN suficiente AND homogeneo THEN round(precio_unitario / mediana, 2) END AS razon_mediana,
+       CASE WHEN NOT suficiente
+                THEN 'No se calcula: solo ' || compras || ' compras comparables (mínimo '
+                     || umbral('PRECIO_MIN_COMPARABLES')::INTEGER || ').'
+            WHEN NOT homogeneo
+                THEN 'No se calcula: el grupo mezcla productos distintos (el precio típico varía '
+                     || coalesce(replace(dispersion::VARCHAR, '.', ','), 'sin límite') || ' veces; máximo '
+                     || umbral('PRECIO_MAX_DISPERSION')::INTEGER || ').'
        END AS motivo_no_calculado
-FROM mart.hecho_item i
-JOIN mart.precio_grupo g USING (cpc, unidad, anio)
-JOIN mart.precio_grupo_mad m USING (cpc, unidad, anio)
-WHERE i.precio_unitario IS NOT NULL;
+FROM base;
 
 CREATE OR REPLACE TABLE mart.senal_riesgo (
     ocid VARCHAR NOT NULL,
@@ -64,7 +74,15 @@ FROM mart.precio_comparado
 WHERE razon_mediana IS NOT NULL
   AND mad > 0
   AND precio_unitario > mediana + umbral('PRECIO_MAD_K') * 1.4826 * mad
-  AND razon_mediana >= umbral('PRECIO_RATIO_MIN');
+  AND razon_mediana >= umbral('PRECIO_RATIO_MIN')
+  AND razon_mediana <= umbral('PRECIO_RATIO_MAX');
+
+-- Ratios beyond the plausible maximum are recorded as a data quality issue, not as a signal.
+INSERT INTO mart.calidad_dato
+SELECT ocid, 'precio_unitario_implausible', anio FROM mart.precio_comparado WHERE razon_mediana > umbral('PRECIO_RATIO_MAX');
+
+CREATE OR REPLACE TABLE mart.calidad_resumen AS
+SELECT anio, tipo, count(*) AS casos FROM mart.calidad_dato GROUP BY ALL ORDER BY anio, tipo;
 
 -- CONCENTRACION: Herfindahl-Hirschman index of each entity's suppliers per year (0 to 10 000).
 CREATE OR REPLACE TABLE mart.concentracion AS

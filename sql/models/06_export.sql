@@ -32,11 +32,15 @@ TO 'web/public/data/procesos' (FORMAT parquet, PARTITION_BY (anio), COMPRESSION 
      ROW_GROUP_SIZE 100000, OVERWRITE_OR_IGNORE true, FILENAME_PATTERN 'datos');
 
 COPY (SELECT * FROM mart.precio_grupo ORDER BY cpc, unidad, anio)
-TO 'web/public/data/precio_grupo.parquet' (FORMAT parquet, COMPRESSION zstd, PARQUET_VERSION V1);
-COPY (SELECT * REPLACE (pub_ocid(ocid) AS ocid) FROM mart.senal_riesgo ORDER BY indicador, anio, entidad_id)
-TO 'web/public/data/senales.parquet' (FORMAT parquet, COMPRESSION zstd, PARQUET_VERSION V1);
+TO 'web/public/data/precio_grupo.parquet' (FORMAT parquet, COMPRESSION zstd, PARQUET_VERSION V1, ROW_GROUP_SIZE 16384);
+COPY (
+    SELECT s.* REPLACE (pub_ocid(s.ocid) AS ocid), e.nombre AS entidad_nombre
+    FROM mart.senal_riesgo s LEFT JOIN mart.dim_entidad e ON e.entidad_id = s.entidad_id AND e.tipo <> 'natural'
+    ORDER BY s.indicador, s.anio, s.valor DESC
+)
+TO 'web/public/data/senales.parquet' (FORMAT parquet, COMPRESSION zstd, PARQUET_VERSION V1, ROW_GROUP_SIZE 8192);
 COPY (SELECT * FROM mart.concentracion ORDER BY entidad_id, anio)
-TO 'web/public/data/concentracion.parquet' (FORMAT parquet, COMPRESSION zstd, PARQUET_VERSION V1);
+TO 'web/public/data/concentracion.parquet' (FORMAT parquet, COMPRESSION zstd, PARQUET_VERSION V1, ROW_GROUP_SIZE 16384);
 COPY (SELECT * FROM mart.dim_entidad ORDER BY entidad_id)
 TO 'web/public/data/entidades.parquet' (FORMAT parquet, COMPRESSION zstd, PARQUET_VERSION V1);
 COPY (SELECT * FROM mart.dim_proveedor WHERE tipo <> 'natural' ORDER BY proveedor_id)
@@ -112,3 +116,80 @@ COPY (
     WHERE r.rn <= 20 AND r.total >= 25
     GROUP BY r.proveedor_id
 ) TO 'data/export/feeds.json' (FORMAT json, ARRAY true);
+
+-- Home feed: the most relevant signals as ready-to-read posts (no engine needed on first view).
+-- Price posts are ranked by the extra amount paid against the median, not by the ratio alone.
+COPY (
+    WITH ultimo AS (SELECT max(anio) - 1 AS desde FROM mart.hecho_adjudicacion),
+    precio AS (
+        SELECT 'PRECIO_ATIPICO' AS indicador, pub_ocid(s.ocid) AS ocid, s.anio, c.fecha, s.valor, s.umbral, s.explicacion,
+               s.entidad_id, e.nombre AS entidad,
+               CASE WHEN c.proveedor_tipo = 'natural' THEN 'Persona natural' ELSE p.nombre END AS proveedor,
+               c.proveedor_tipo, c.descripcion AS item, c.cpc, c.unidad, c.precio_unitario, c.mediana, c.compras,
+               round(c.cantidad * (c.precio_unitario - c.mediana), 2) AS monto
+        FROM mart.senal_riesgo s
+        JOIN mart.precio_comparado c USING (ocid, item_key)
+        JOIN mart.dim_entidad e ON e.entidad_id = s.entidad_id AND e.tipo <> 'natural'
+        LEFT JOIN mart.dim_proveedor p ON p.proveedor_id = c.proveedor_id
+        WHERE s.indicador = 'PRECIO_ATIPICO' AND s.anio >= (SELECT desde FROM ultimo)
+        ORDER BY monto DESC NULLS LAST LIMIT 40
+    ),
+    otras AS (
+        SELECT s.indicador, pub_ocid(s.ocid) AS ocid, s.anio, a.fecha, s.valor, s.umbral, s.explicacion, s.entidad_id,
+               e.nombre AS entidad,
+               CASE WHEN p.tipo = 'natural' OR p.tipo IS NULL THEN 'Persona natural' ELSE p.nombre END AS proveedor,
+               p.tipo AS proveedor_tipo, NULL AS item, NULL AS cpc, NULL AS unidad, NULL::DOUBLE AS precio_unitario,
+               NULL::DOUBLE AS mediana, NULL::BIGINT AS compras, a.monto::DOUBLE AS monto,
+               row_number() OVER (PARTITION BY s.indicador ORDER BY s.anio DESC, a.monto DESC NULLS LAST) AS rn
+        FROM mart.senal_riesgo s
+        JOIN mart.dim_entidad e ON e.entidad_id = s.entidad_id AND e.tipo <> 'natural'
+        LEFT JOIN mart.hecho_adjudicacion a ON a.ocid = s.ocid
+        LEFT JOIN mart.dim_proveedor p ON p.proveedor_id = s.proveedor_id
+        WHERE s.indicador IN ('FRAGMENTACION', 'PROVEEDOR_NUEVO') AND s.anio >= (SELECT desde FROM ultimo)
+        QUALIFY rn <= 15
+    ),
+    conc AS (
+        SELECT 'CONCENTRACION' AS indicador, NULL AS ocid, c.anio, NULL::DATE AS fecha, c.hhi::DOUBLE AS valor, 1800::DOUBLE AS umbral,
+               s.explicacion, c.entidad_id, e.nombre AS entidad,
+               CASE WHEN p.tipo = 'natural' OR p.tipo IS NULL THEN 'Persona natural' ELSE p.nombre END AS proveedor,
+               p.tipo AS proveedor_tipo, NULL AS item, NULL AS cpc, NULL AS unidad, NULL::DOUBLE AS precio_unitario,
+               NULL::DOUBLE AS mediana, c.adjudicaciones::BIGINT AS compras, c.monto_total::DOUBLE AS monto
+        FROM mart.concentracion c
+        JOIN mart.senal_riesgo s ON s.indicador = 'CONCENTRACION' AND s.entidad_id = c.entidad_id AND s.anio = c.anio
+        JOIN mart.dim_entidad e ON e.entidad_id = c.entidad_id AND e.tipo <> 'natural'
+        LEFT JOIN mart.dim_proveedor p ON p.proveedor_id = c.proveedor_mayor
+        WHERE c.anio = (SELECT desde FROM ultimo)
+        ORDER BY c.monto_total DESC LIMIT 15
+    )
+    SELECT * FROM precio
+    UNION ALL BY NAME SELECT * EXCLUDE (rn) FROM otras
+    UNION ALL BY NAME SELECT * FROM conc
+) TO 'web/public/data/feed.json' (FORMAT json, ARRAY true);
+
+-- Right rail: entities and suppliers with the largest amounts in the last full year.
+COPY (
+    WITH ultimo AS (SELECT max(anio) - 1 AS anio FROM mart.hecho_adjudicacion)
+    SELECT
+        (SELECT anio FROM ultimo) AS anio,
+        (SELECT list({'id': entidad_id, 'nombre': nombre, 'monto': monto} ORDER BY monto DESC) FROM (
+            SELECT a.entidad_id, e.nombre, round(sum(a.monto))::BIGINT AS monto
+            FROM mart.hecho_adjudicacion a JOIN mart.dim_entidad e USING (entidad_id)
+            WHERE a.vigente AND a.anio = (SELECT anio FROM ultimo) AND e.tipo <> 'natural'
+            GROUP BY ALL ORDER BY monto DESC LIMIT 6)) AS entidades,
+        (SELECT list({'id': proveedor_id, 'nombre': nombre, 'monto': monto} ORDER BY monto DESC) FROM (
+            SELECT a.proveedor_id, p.nombre, round(sum(a.monto))::BIGINT AS monto
+            FROM mart.hecho_adjudicacion a JOIN mart.dim_proveedor p USING (proveedor_id)
+            WHERE a.vigente AND a.anio = (SELECT anio FROM ultimo) AND p.tipo = 'juridica'
+            GROUP BY ALL ORDER BY monto DESC LIMIT 6)) AS proveedores
+) TO 'web/public/data/tendencias.json' (FORMAT json);
+
+-- Materialized view for the signals page: top 100 per indicator and year, a single row group,
+-- so a filter change costs a handful of HTTP round trips (test T-11). Full data: senales.parquet.
+COPY (
+    SELECT indicador, anio, valor,
+           to_json({'ocid': pub_ocid(s.ocid), 'explicacion': explicacion, 'entidad_id': s.entidad_id, 'entidad': e.nombre})::VARCHAR AS datos
+    FROM mart.senal_riesgo s
+    LEFT JOIN mart.dim_entidad e ON e.entidad_id = s.entidad_id AND e.tipo <> 'natural'
+    QUALIFY row_number() OVER (PARTITION BY indicador, anio ORDER BY valor DESC) <= 100
+    ORDER BY indicador, anio, valor DESC
+) TO 'web/public/data/senales_top.parquet' (FORMAT parquet, COMPRESSION zstd, PARQUET_VERSION V1, ROW_GROUP_SIZE 1000000);

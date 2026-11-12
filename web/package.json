@@ -1,0 +1,40 @@
+{
+  "name": "lupa-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "LUPA: observatorio de la contratación pública de Ecuador",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build && node scripts/build-feeds.mjs",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "lint:text": "node scripts/check-language.mjs"
+  },
+  "dependencies": {
+    "@astryxdesign/core": "0.7.14",
+    "@astryxdesign/theme-neutral": "0.7.14",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "@fontsource-variable/figtree": "5.3.0",
+    "@stylexjs/stylex": "0.19.2",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@astryxdesign/cli": "0.7.14",
+    "@playwright/test": "1.65.0",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "@vitest/coverage-v8": "5.1.0",
+    "jsdom": "29.1.1",
+    "typescript": "7.0.2",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}

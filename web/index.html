@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="description" content="LUPA: la contratación pública de Ecuador, a la vista de todos. Datos abiertos del SERCOP explicados con cifras verificables." />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title="LUPA: últimas adjudicaciones" href="./rss/index.xml" />
+    <title>LUPA · Contratación pública de Ecuador</title>
+  </head>
+  <body>
+    <noscript>
+      <p>LUPA necesita JavaScript para consultar los datos en tu navegador. Puedes descargar los archivos en la carpeta <a href="./data/">data</a>.</p>
+    </noscript>
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>
