@@ -14,7 +14,7 @@ LUPA no tiene servidor de aplicación, base de datos en línea, cuentas, formula
 
 - Secretos solo por variables de entorno y GitHub Secrets (`LUPA_HASH_SALT`); sin valor por defecto: si falta, el pipeline y `docker compose` no arrancan. `.env` no se versiona.
 - Escaneo de secretos con gitleaks (binario con SHA-256 verificado) en cada push y pull request.
-- GitHub Actions con permisos mínimos (`contents: read`; `pages: write` solo en el despliegue) y acciones fijadas por hash de commit.
+- GitHub Actions con permisos mínimos (`contents: read`) y acciones fijadas por hash de commit.
 - Dependencias con versión exacta, `npm audit` en CI y Dependabot para Cargo, npm, Docker y Actions.
 - Descargas verificadas: CLI de DuckDB y gitleaks con SHA-256; archivos de origen con su huella registrada en cada carga.
 - Imágenes Docker multi-etapa, con versión fija, usuario no root, sistema de archivos de solo lectura en el servidor web y `no-new-privileges`.

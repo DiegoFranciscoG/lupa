@@ -10,9 +10,9 @@ Convierte 2,25 millones de procesos de compra del Estado ecuatoriano (SERCOP, 20
 ![Licencia](https://img.shields.io/badge/licencia-MIT-green)
 ![Datos](https://img.shields.io/badge/datos-CC_BY_3.0_EC-lightgrey)
 
-## Demo en vivo
+## Demo
 
-**https://diegofranciscog.github.io/lupa/** (se publica con el flujo «Carga semanal y publicación»). No hay usuario de prueba: el sitio es público, sin cuentas ni registro.
+El proyecto se ejecuta en local con un solo comando (ver «Cómo ejecutar en local»). No hay usuario de prueba: el sitio es público, sin cuentas ni registro.
 
 ## Capturas
 
@@ -49,7 +49,7 @@ flowchart LR
   WEB -->|HTTP range| WASM[DuckDB-Wasm<br/>en el navegador]
 ```
 
-No hay servidor de aplicación: la base de datos es el backend. GitHub Actions corre el pipeline cada semana y publica en GitHub Pages.
+No hay servidor de aplicación: la base de datos es el backend. El sitio resultante es estático.
 
 ## Stack y por qué
 
@@ -132,10 +132,9 @@ Las doce pruebas del plan (T-01 a T-12) están descritas en [docs/metodologia.md
 
 ## Despliegue
 
-- **GitHub Pages** (gratis): el flujo [`publicar.yml`](.github/workflows/publicar.yml) corre cada lunes y bajo demanda, conserva el lago DuckLake en caché, salta los años cuya huella SHA-256 no cambió, corre todas las pruebas y publica solo si pasan.
-- Se descartó Cloudflare Pages porque limita cada archivo a 25 MiB y los binarios de DuckDB-Wasm pesan 34 y 39 MB. No se necesita Cloudflare R2: todos los archivos de datos pesan menos de 25 MiB y caben en Pages.
-- Pasos únicos y comandos exactos: [docs/despliegue.md](docs/despliegue.md).
-- Datos actuales: llegan hasta la última recolección del registro de OCP (hoy, hasta el 8 de noviembre de 2026). El flujo corre cada lunes y salta los años que no cambiaron.
+- **Local con Docker**: `docker compose up --build` descarga los datos más recientes, construye la base, corre las pruebas y sirve el sitio en http://localhost:8080. Detalle en [docs/despliegue.md](docs/despliegue.md).
+- **Datos actuales**: llegan hasta la última recolección del registro de OCP (en la versión de noviembre de 2026, hasta el 8 de noviembre). Al volver a ejecutar, los años sin cambios (misma SHA-256) se saltan.
+- **Hosting estático opcional**: el sitio cabe en cualquier hosting gratuito con archivos de hasta 100 MB.
 
 ## Seguridad aplicada
 
@@ -155,7 +154,7 @@ Resumen en [SECURITY.md](SECURITY.md): sin servidor ni cuentas; CSP sin orígene
 
 - Revisión legal de los textos antes de publicar las señales ([docs/legal.md](docs/legal.md)).
 - Límites de procedimiento verificados para 2015–2024 y 2026.
-- Publicar las instantáneas de DuckLake como datos descargables por versión.
+- Publicar el sitio y las instantáneas de DuckLake como datos descargables por versión.
 - Enlace directo a cada proceso en el portal del SERCOP cuando se verifique el formato de URL.
 
 ## Fuentes de datos y licencias

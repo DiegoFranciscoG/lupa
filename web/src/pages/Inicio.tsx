@@ -59,7 +59,7 @@ export function InicioPage() {
                 <section className="pinned" aria-label="Resumen">
                   <p className="kicker">
                     Fijado. Datos del SERCOP hasta el {meta.datos_hasta ?? meta.snapshot_fecha}, actualizados el {meta.snapshot_fecha}{' '}
-                    (instantánea {meta.snapshot_id}). Se revisan cada semana.
+                    (instantánea {meta.snapshot_id}).
                   </p>
                   <div className="big-figure">{fmtUsdShort(last.monto)}</div>
                   <p className="post-text">

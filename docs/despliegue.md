@@ -1,44 +1,37 @@
-# Despliegue (gratis, GitHub Pages)
+# Ejecución y actualización de datos
 
-Verificado el 2026-11-12. Límites de GitHub Pages: sitio de hasta 1 GB, archivos de hasta 100 MB y un ancho de banda orientativo de 100 GB al mes. LUPA publica unos 300 MB (datos, motor DuckDB-Wasm y feeds RSS). No requiere tarjeta.
+LUPA se publica como código. El sitio se levanta en cualquier equipo con Docker y siempre descarga los datos más recientes del registro de Open Contracting Partnership (SERCOP).
 
-## Una sola vez
-
-1. Crear el repositorio y subir el código (lo haces tú tras «VOY A SUBIR»).
-2. Crear el secreto de la sal (64 caracteres hex) y guardarlo también en un gestor de contraseñas: si cambia, cambian los identificadores públicos `NAT-…`.
-
-   ```bash
-   gh secret set LUPA_HASH_SALT --repo DiegoFranciscoG/lupa --body "$(openssl rand -hex 32)"
-   ```
-
-3. Variables públicas del sitio:
-
-   ```bash
-   gh variable set LUPA_SITE_URL --repo DiegoFranciscoG/lupa --body "https://diegofranciscog.github.io/lupa/"
-   gh variable set LUPA_CONTACT_EMAIL --repo DiegoFranciscoG/lupa --body "tu-correo-de-contacto"
-   ```
-
-4. Activar Pages con origen «GitHub Actions»:
-
-   ```bash
-   gh api -X POST repos/DiegoFranciscoG/lupa/pages -f build_type=workflow
-   ```
-
-5. Lanzar la primera carga (12 años, unos 15 minutos):
-
-   ```bash
-   gh workflow run publicar.yml --repo DiegoFranciscoG/lupa -f years=2015..2026
-   ```
-
-## Actualización de los datos
-
-- El flujo [`publicar.yml`](../.github/workflows/publicar.yml) corre **cada lunes**. El registro de Open Contracting Partnership recoge los datos del SERCOP una vez al mes; los años cuyo archivo no cambió (misma huella SHA-256) se saltan, así que una semana sin novedades no genera una instantánea nueva.
-- El año en curso cambia en cada recolección; los años cerrados casi nunca. La página de inicio muestra hasta qué fecha llegan los datos y cuándo se actualizaron.
-- Si la fuente falla, se conserva la carga anterior de ese año y el sitio sigue publicado (T-10). Si una prueba de calidad falla, no se publica (T-12).
-- El lago DuckLake se conserva entre corridas en la caché de GitHub Actions (se borra tras 7 días sin uso; la corrida semanal la mantiene viva). Si se pierde, la siguiente corrida reconstruye todo desde la fuente.
-
-## Comprobar el sitio publicado
+## Levantar el sitio
 
 ```bash
-cd web && LUPA_E2E_URL=https://diegofranciscog.github.io/lupa/ npx playwright test
+cp .env.example .env          # completa LUPA_HASH_SALT con: openssl rand -hex 32
+docker compose up --build     # año 2025 de ejemplo; sitio en http://localhost:8080
+```
+
+Todos los años (2015 a hoy, unos 15 minutos y 1,1 GB de descarga):
+
+```bash
+LUPA_YEARS=2015..2026 docker compose up --build
+```
+
+## Actualizar los datos
+
+Volver a ejecutar `docker compose up` descarga de nuevo cada año pedido:
+
+- Si el archivo de un año no cambió (misma huella SHA-256), se salta y no crea una instantánea nueva.
+- Si cambió, se carga como una instantánea nueva de DuckLake; las anteriores siguen consultables.
+- Si la fuente falla, se conserva la carga anterior de ese año (T-10).
+- Si una prueba de calidad falla, no se publican los datos (T-12).
+
+El registro de OCP recoge los datos del SERCOP una vez al mes, así que tiene sentido actualizar mensualmente. La página de inicio muestra hasta qué fecha llegan los datos y cuándo se actualizaron.
+
+## Publicar como sitio (opcional, a futuro)
+
+El sitio es estático (`web/dist` más `web/public/data`) y cabe en cualquier hosting gratuito con archivos de hasta 100 MB, por ejemplo GitHub Pages. No se usa Cloudflare Pages porque limita cada archivo a 25 MiB y el motor DuckDB-Wasm pesa 34 MB.
+
+## Probar un sitio levantado
+
+```bash
+cd web && LUPA_E2E_URL=http://localhost:8080/ npx playwright test
 ```
