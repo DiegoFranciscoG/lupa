@@ -126,7 +126,7 @@ LUPA no tiene API REST (por eso no hay OpenAPI): los datos se publican como arch
 | Ingesta Rust | 19 (unitarias + integración T-01, T-02, T-10); cobertura de líneas 84 % | `cargo llvm-cov` en `ingest/` |
 | SQL sintético | T-03 señales esperadas, T-04 precio atípico, T-05 grafo, T-09 reproducibilidad | `scripts/lupa.sh unit` y `scripts/lupa.sh repro` |
 | SQL sobre datos reales | 13 consultas que deben devolver cero filas (T-01, T-02, T-06, T-07, T-08, T-11, T-12) | `scripts/lupa.sh test` y `export` |
-| Sitio | 20 unitarias (Vitest) + 12 de punta a punta (Playwright: atribución, lenguaje, peso < 300 kB, consulta < 2 s en 4G, móvil, teclado) | `npm test`, `npx playwright test` |
+| Sitio | 20 unitarias (Vitest) + 14 de punta a punta (Playwright: atribución, lenguaje, peso < 300 kB, consulta < 2 s en 4G, móvil, teclado, ninguna página queda cargando) | `npm test`, `npx playwright test` |
 
 Las doce pruebas del plan (T-01 a T-12) están descritas en [docs/metodologia.md](docs/metodologia.md#pruebas).
 
@@ -134,7 +134,8 @@ Las doce pruebas del plan (T-01 a T-12) están descritas en [docs/metodologia.md
 
 - **GitHub Pages** (gratis): el flujo [`publicar.yml`](.github/workflows/publicar.yml) corre cada lunes y bajo demanda, conserva el lago DuckLake en caché, salta los años cuya huella SHA-256 no cambió, corre todas las pruebas y publica solo si pasan.
 - Se descartó Cloudflare Pages porque limita cada archivo a 25 MiB y los binarios de DuckDB-Wasm pesan 34 y 39 MB. No se necesita Cloudflare R2: todos los archivos de datos pesan menos de 25 MiB y caben en Pages.
-- Pasos únicos: crear el secreto `LUPA_HASH_SALT`, las variables `LUPA_CONTACT_EMAIL` y `LUPA_SITE_URL`, y activar Pages con origen «GitHub Actions».
+- Pasos únicos y comandos exactos: [docs/despliegue.md](docs/despliegue.md).
+- Datos actuales: llegan hasta la última recolección del registro de OCP (hoy, hasta el 8 de noviembre de 2026). El flujo corre cada lunes y salta los años que no cambiaron.
 
 ## Seguridad aplicada
 
