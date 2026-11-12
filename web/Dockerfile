@@ -1,5 +1,5 @@
 # LUPA static site served by unprivileged nginx. Data and feeds are mounted read-only.
-FROM node:24.11.1-bookworm-slim AS build
+FROM node:26.13.0-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
