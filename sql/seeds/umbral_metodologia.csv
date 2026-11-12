@@ -1,0 +1,12 @@
+codigo,descripcion,valor,fuente
+PRECIO_MIN_COMPARABLES,Compras comparables mínimas para calcular el precio atípico,10,Regla del proyecto (docs/metodologia.md)
+PRECIO_MAD_K,Número de desviaciones absolutas medianas escaladas sobre la mediana,3.5,Iglewicz y Hoaglin (1993) puntaje Z modificado > 3.5
+PRECIO_RATIO_MIN,Razón mínima precio/mediana para marcar,2,Regla del proyecto: evita marcar diferencias pequeñas en grupos muy homogéneos
+HHI_ALTO,Índice Herfindahl-Hirschman a partir del cual la concentración se considera alta,1800,US DOJ y FTC Merger Guidelines 2023 sección 2.1
+HHI_MIN_ADJUDICACIONES,Adjudicaciones mínimas de la entidad en el año para marcar concentración,20,Regla del proyecto
+FRAG_VENTANA_DIAS,Ventana de días para agrupar compras repetidas,30,Regla del proyecto
+FRAG_MIN_COMPRAS,Compras mínimas dentro de la ventana,3,Regla del proyecto
+FRAG_BANDA_INFERIOR,Fracción del umbral desde la que una compra se considera justo por debajo,0.8,Regla del proyecto
+NUEVO_DIAS,Días desde la primera adjudicación para considerar a un proveedor como nuevo,90,Regla del proyecto
+NUEVO_PERCENTIL,Percentil del monto anual a partir del cual una adjudicación es grande,0.95,Regla del proyecto
+R003_DIAS,Plazo de presentación de ofertas considerado corto (días),15,Cardinal R003 valor por defecto

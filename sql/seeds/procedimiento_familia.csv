@@ -1,0 +1,12 @@
+familia,orden,descripcion_clara
+Catálogo electrónico,1,Compra directa a proveedores ya calificados en el catálogo del SERCOP. El precio y el producto están fijados en un convenio marco.
+Subasta inversa electrónica,2,Los proveedores pujan a la baja por un bien o servicio normalizado. Gana el precio más bajo.
+Ínfima cuantía,3,Compra de monto pequeño sin concurso. El límite depende del año.
+Menor cuantía,4,Procedimiento simplificado para montos bajos. Eliminado por la Ley de Integridad Pública (junio 2025).
+Cotización,5,Invitación a varios proveedores para montos medios. Eliminado por la Ley de Integridad Pública (junio 2025).
+Licitación,6,Concurso abierto para montos altos.
+Consultoría,7,Contratación de estudios y asesorías por lista corta o concurso público.
+Contratación directa,8,Adjudicación a un proveedor sin competencia previa (casos previstos en la ley).
+Régimen especial,9,Procedimientos con reglas propias: comunicación social; asesoría jurídica; obra artística; contratos entre entidades públicas; seguros; repuestos.
+Emergencia,10,Compra por declaratoria de emergencia.
+Otro,11,Procedimiento sin clasificar o sin dato en la fuente.

@@ -1,0 +1,5 @@
+codigo,descripcion,aplica_a,vigente_desde,vigente_hasta,valor,base_calculo,fuente_url
+INFIMA_CUANTIA,Ínfima cuantía (límite superior),bienes_servicios_obras,2025-01-01,2025-06-25,7212.60,0.0000002 x PIE 2025 (USD 36063017083.08),https://registrodelapropiedad.quito.gob.ec/wp-content/uploads/2025/01/Montos-de-contratacion-2025.pdf
+MENOR_CUANTIA_BS,Menor cuantía bienes y servicios (límite superior),bienes_servicios,2025-01-01,2025-06-25,72126.03,0.000002 x PIE 2025,https://registrodelapropiedad.quito.gob.ec/wp-content/uploads/2025/01/Montos-de-contratacion-2025.pdf
+COTIZACION_BS,Cotización bienes y servicios (límite superior),bienes_servicios,2025-01-01,2025-06-25,540945.26,0.000015 x PIE 2025,https://registrodelapropiedad.quito.gob.ec/wp-content/uploads/2025/01/Montos-de-contratacion-2025.pdf
+INFIMA_CUANTIA,Ínfima cuantía (límite superior) tras la Ley de Integridad Pública,bienes_servicios_obras_consultoria,2025-06-26,,10000.00,Monto fijo de la ley reformada,https://portal.compraspublicas.gob.ec/sercop/wp-content/uploads/2025/08/INFOGRAFIA-MONTOS.pdf
