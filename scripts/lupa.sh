@@ -10,6 +10,7 @@
 #   export         write web/public/data (Parquet + JSON) and run sql/tests/published
 #   fingerprint    print a hash of the published aggregates (reproducibility, T-09)
 #   unit           run sql/tests/unit/*.sql on synthetic data in a throwaway lake
+#   repro          T-09: rebuild from an older DuckLake snapshot and compare fingerprints
 #   all            migrate + load + build + test + export
 #
 # Environment:
@@ -100,7 +101,7 @@ fingerprint() {
 
 unit() {
   local tmp failed=0 f
-  tmp="$(mktemp -d)"
+  mkdir -p data; tmp="$(mktemp -d -p data unit.XXXXXX)"
   trap 'rm -rf "$tmp"' RETURN
   for f in sql/tests/unit/*.sql; do
     local name db lake
@@ -126,6 +127,33 @@ unit() {
   return $failed
 }
 
+# T-09: building from DuckLake snapshot N gives the same fingerprint even after the lake
+# has received newer data.
+repro() {
+  local tmp setup extra
+  mkdir -p data; tmp="$(mktemp -d -p data repro.XXXXXX)"
+  trap 'rm -rf "$tmp"' RETURN
+  setup="$tmp/setup.sql"; extra="$tmp/extra.sql"
+  awk '/^-- @assert/{exit} {print}' sql/tests/unit/t03_senales_reproducibles.sql > "$setup"
+  cat > "$extra" <<'SQL'
+INSERT INTO lake.process VALUES ('late', 'r', '2026-01-05', 'EC-RUC-0960000001001-1', 'ENTIDAD E', NULL, NULL, 'complete',
+  NULL, NULL, 'goods', NULL, NULL, NULL, NULL, NULL, 2026);
+INSERT INTO lake.award VALUES ('late', 'a-late', '2026-01-06', 'active', 123456.0, 'USD', 2026);
+SQL
+  local models="sql/models/01_macros.sql sql/models/02_staging.sql sql/models/03_marts.sql sql/models/04_signals.sql sql/models/05_graph.sql"
+  local snap fp_a fp_b fp_c
+  mkdir -p "$tmp/lake/files"
+  export LUPA_LAKE="$tmp/lake/catalog.ducklake"
+  snap="$(LUPA_DB="$tmp/a.duckdb" bash -c "source scripts/lupa.sh --lib; run_sql sql/migrations/V*.sql $setup <(echo 'SELECT max(snapshot_id) FROM lake.snapshots();')" | tail -1)"
+  fp_a="$(LUPA_DB="$tmp/a.duckdb" bash -c "source scripts/lupa.sh --lib; run_sql $models sql/models/07_fingerprint.sql" | tail -1)"
+  fp_b="$(LUPA_DB="$tmp/a.duckdb" bash -c "source scripts/lupa.sh --lib; run_sql $extra $models sql/models/07_fingerprint.sql" | tail -1)"
+  fp_c="$(LUPA_DB="$tmp/c.duckdb" LUPA_SNAPSHOT="$snap" bash -c "source scripts/lupa.sh --lib; run_sql $models sql/models/07_fingerprint.sql" | tail -1)"
+  echo "snapshot $snap: fingerprint $fp_a; after new data: $fp_b; rebuilt from snapshot $snap: $fp_c"
+  [[ -n "$fp_a" && "$fp_a" != "$fp_b" ]] || { echo "FAIL T-09: new data did not change the fingerprint"; return 1; }
+  [[ "$fp_a" == "$fp_c" ]] || { echo "FAIL T-09: rebuilding from snapshot $snap gave a different fingerprint"; return 1; }
+  echo "ok   T-09 reproducibility by snapshot"
+}
+
 [[ "${1:-}" == "--lib" ]] && return 0
 
 check_salt
@@ -138,6 +166,7 @@ case "${1:-}" in
   export) export_data ;;
   fingerprint) fingerprint ;;
   unit) unit ;;
+  repro) repro ;;
   all)
     migrate
     run_sql sql/models/00_load_lake.sql >/dev/null
