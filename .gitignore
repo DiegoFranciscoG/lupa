@@ -1,0 +1,27 @@
+# ---- Secretos y entorno
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# ---- Rust
+target/
+# ---- Node / React
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+npm-debug.log*
+# ---- Datos generados (se reconstruyen con el pipeline)
+data/
+web/public/data/
+*.duckdb
+*.duckdb.wal
+*.ducklake
+*.ducklake.wal
+# ---- IDE / SO
+.idea/
+.vscode/*
+.DS_Store
+Thumbs.db
