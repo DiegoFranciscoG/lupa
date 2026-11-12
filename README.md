@@ -144,7 +144,7 @@ Resumen en [SECURITY.md](SECURITY.md): sin servidor ni cuentas; CSP sin orígene
 
 - **La base de datos es el backend**: sin API que mantener ni servidor que se duerma.
 - **Parquet hacia el navegador, nunca `.duckdb`**: DuckDB 2.0 escribe archivos que la versión Wasm 1.x no lee.
-- **Regla de homogeneidad**: un código CPC genérico («insumos de uso general») mezcla productos; si `p75/p25 > 3` no se compara. Bajó las señales de precio de 137 000 a 37 700 falsos candidatos menos.
+- **Regla de homogeneidad**: un código CPC genérico («insumos de uso general») mezcla productos; si `p75/p25 > 3` no se compara. Junto con la regla siguiente, redujo las señales de precio de 137 143 a 36 839.
 - **Razones mayores a 50 veces son error de registro**: el caso real de «895 696 veces la mediana» era un precio total cargado como unitario; va a calidad de datos, no a señales.
 - **Umbrales con vigencia**: la Ley de Integridad Pública cambió los límites el 26-jun-2025; los parámetros tienen fecha de inicio y fin.
 - **Clasificación conservadora de personas naturales**: ante la duda, se enmascara.
