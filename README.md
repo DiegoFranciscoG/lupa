@@ -165,4 +165,4 @@ Resumen en [SECURITY.md](SECURITY.md): sin servidor ni cuentas; CSP sin orígene
 
 ## Autor
 
-Diego Francisco Granda Zhingre · Cuenca, Ecuador · [GitHub](https://github.com/DiegoFranciscoG) · LinkedIn: _(agregar enlace)_
+Diego Francisco Granda Zhingre · Cuenca, Ecuador · [GitHub](https://github.com/DiegoFranciscoG) · [LinkedIn](https://www.linkedin.com/in/diego-francisco-g-61b793254/)
