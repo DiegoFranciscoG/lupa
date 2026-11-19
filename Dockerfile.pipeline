@@ -2,7 +2,7 @@
 # Output: /app/web/public/data (site data) and /app/out/rss (feeds).
 
 # ---- 1. Build the Rust ingest
-FROM rust:1.99.1-slim-bookworm AS ingest
+FROM rust:1.100.0-slim-bookworm AS ingest
 WORKDIR /src
 COPY ingest/Cargo.toml ingest/Cargo.lock ./
 COPY ingest/src ./src
