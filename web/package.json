@@ -15,7 +15,7 @@
     "lint:text": "node scripts/check-language.mjs"
   },
   "dependencies": {
-    "@astryxdesign/core": "0.7.14",
+    "@astryxdesign/core": "0.7.17",
     "@astryxdesign/theme-neutral": "0.7.14",
     "@duckdb/duckdb-wasm": "1.32.0",
     "@fontsource-variable/figtree": "5.3.0",
